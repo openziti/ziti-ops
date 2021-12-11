@@ -1,0 +1,128 @@
+name: build
+
+on:
+  push:
+    branches:
+      - main
+      - release-v*
+  pull_request:
+  workflow_dispatch:
+
+env:
+  GOFLAGS: "-trimpath"
+  GOX_OUTPUT: "release/{{.Arch}}/{{.OS}}/{{.Dir}}"
+  gh_ci_key: ${{ secrets.GH_CI_KEY }}
+
+jobs:
+  mac-os-build:
+    name: Build Mac OS binaries
+    runs-on: macos-10.15
+    steps:
+      - name: Git Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: '~1.17.1'
+
+      - name: Install Ziti CI
+        uses: netfoundry/ziti-ci@v1
+
+      - name: Build and Test
+        run: |
+          go install github.com/mitchellh/gox@latest
+          $(go env GOPATH)/bin/ziti-ci generate-build-info buildinfo/buildinfo_generated.go buildinfo
+          CGO_ENABLED=true $(go env GOPATH)/bin/gox -os=darwin -arch=amd64 -output=$GOX_OUTPUT ./...
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: darwin-release
+          path: release/
+          retention-days: 5
+
+  windows-build:
+    name: Build Windows binaries
+    runs-on: windows-2019
+    steps:
+      - name: Git Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: '~1.17.1'
+
+      - name: Install Ziti CI
+        uses: netfoundry/ziti-ci@v1
+
+      - name: Build and Test
+        shell: bash
+        run: |
+          go install github.com/mitchellh/gox@latest
+          $(go env GOPATH)/bin/ziti-ci generate-build-info buildinfo/buildinfo_generated.go buildinfo
+          CGO_ENABLED=true $(go env GOPATH)/bin/gox -os=windows -arch=amd64 -output=$GOX_OUTPUT ./...
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: windows-release
+          path: release/
+          retention-days: 5
+
+  tag-and-publish:
+    name: Build Linux Binaries, Tag, and Publish
+    runs-on: ubuntu-18.04
+    needs: [ mac-os-build, windows-build ]
+    steps:
+      - name: Git Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: '~1.17.1'
+
+      - name: Install Ziti CI
+        uses: netfoundry/ziti-ci@v1
+
+      - name: Build and Test
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          sudo apt-get update
+          sudo apt-get -yq install gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf gcc-aarch64-linux-gnu
+          $(go env GOPATH)/bin/ziti-ci configure-git
+          $(go env GOPATH)/bin/ziti-ci generate-build-info buildinfo/buildinfo_generated.go buildinfo
+          go install github.com/mitchellh/gox@latest
+          CGO_ENABLED=true $(go env GOPATH)/bin/gox -os=linux -arch=amd64 -output=$GOX_OUTPUT ./...
+          CC=arm-linux-gnueabihf-gcc CGO_ENABLED=true gox -cgo -os=linux -arch=arm -output=$GOX_OUTPUT ./...
+          CC=aarch64-linux-gnu-gcc CGO_ENABLED=true gox -cgo -os=linux -arch=arm64 -output=$GOX_OUTPUT ./...
+          echo "RELEASE_VERSION=$($(go env GOPATH)/bin/ziti-ci get-next-version -q)" >> $GITHUB_ENV
+
+      - name: Download darwin release artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: darwin-release
+          path: release/
+
+      - name: Download windows release artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: windows-release
+          path: release/
+
+      - name: Publish
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release-v')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $(go env GOPATH)/bin/ziti-ci tag -v -f version
+          $(go env GOPATH)/bin/ziti-ci publish-to-github ziti-ops
