@@ -22,6 +22,51 @@ import (
 	"time"
 )
 
+type LogMatcher interface {
+	Matches(ctx *JsonParseContext) (bool, error)
+}
+
+// AndMatchers will return a matcher that will match if all the supplied matchers match
+func AndMatchers(matchers ...LogMatcher) LogMatcher {
+	return &AndMatcher{matchers: matchers}
+}
+
+type AndMatcher struct {
+	matchers []LogMatcher
+}
+
+func (self *AndMatcher) Matches(ctx *JsonParseContext) (bool, error) {
+	for _, matcher := range self.matchers {
+		result, err := matcher.Matches(ctx)
+		if !result || err != nil {
+			return result, err
+		}
+	}
+	return true, nil
+}
+
+// OrMatchers will return a matcher that will match if any of the supplied matchers match
+func OrMatchers(matchers ...LogMatcher) LogMatcher {
+	return &OrMatcher{matchers: matchers}
+}
+
+type OrMatcher struct {
+	matchers []LogMatcher
+}
+
+func (self *OrMatcher) Matches(ctx *JsonParseContext) (bool, error) {
+	for _, matcher := range self.matchers {
+		result, err := matcher.Matches(ctx)
+		if err != nil {
+			return false, err
+		}
+		if result {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func FieldStartsWith(field, substring string) LogMatcher {
 	return &EntryFieldStartsWithMatcher{
 		field:  field,
@@ -71,45 +116,6 @@ type EntryFieldEqualsMatcher struct {
 func (self *EntryFieldEqualsMatcher) Matches(ctx *JsonParseContext) (bool, error) {
 	fieldValue := ctx.GetString(self.field)
 	return fieldValue == self.value, nil
-}
-
-func AndMatchers(matchers ...LogMatcher) LogMatcher {
-	return &AndMatcher{matchers: matchers}
-}
-
-type AndMatcher struct {
-	matchers []LogMatcher
-}
-
-func (self *AndMatcher) Matches(ctx *JsonParseContext) (bool, error) {
-	for _, matcher := range self.matchers {
-		result, err := matcher.Matches(ctx)
-		if !result || err != nil {
-			return result, err
-		}
-	}
-	return true, nil
-}
-
-func OrMatchers(matchers ...LogMatcher) LogMatcher {
-	return &OrMatcher{matchers: matchers}
-}
-
-type OrMatcher struct {
-	matchers []LogMatcher
-}
-
-func (self *OrMatcher) Matches(ctx *JsonParseContext) (bool, error) {
-	for _, matcher := range self.matchers {
-		result, err := matcher.Matches(ctx)
-		if err != nil {
-			return false, err
-		}
-		if result {
-			return true, nil
-		}
-	}
-	return false, nil
 }
 
 func FieldMatches(field, expr string) LogMatcher {

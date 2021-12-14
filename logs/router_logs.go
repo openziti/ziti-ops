@@ -21,33 +21,50 @@ import (
 )
 
 func NewRouterLogsCmd() *cobra.Command {
-	parseRouterLogs := &ParseRouterLogs{}
-	parseRouterLogs.Init()
+	routerLogs := &RouterLogs{}
+	routerLogs.Init()
 
 	parseRouterLogsCmd := &cobra.Command{
-		Use:   "router",
-		Short: "Parse router logs",
-		Args:  cobra.ExactArgs(1),
-		RunE:  parseRouterLogs.run,
+		Use:     "router-logs",
+		Short:   "work with router logs",
+		Args:    cobra.ExactArgs(1),
+		Aliases: []string{"rl"},
 	}
 
-	parseRouterLogs.addCommonArgs(parseRouterLogsCmd)
+	filterRouterLogsCmd := &cobra.Command{
+		Use:     "filter",
+		Short:   "filter router log entries",
+		Aliases: []string{"f"},
+		RunE:    routerLogs.filter,
+	}
+
+	routerLogs.addFilterArgs(filterRouterLogsCmd)
+
+	summarizeRouterLogsCmd := &cobra.Command{
+		Use:     "summarize",
+		Short:   "Show router log entry summaries",
+		Aliases: []string{"s"},
+		RunE:    routerLogs.summarize,
+	}
+
+	routerLogs.addSummarizeArgs(summarizeRouterLogsCmd)
 
 	showRouterLogCategoriesCmd := &cobra.Command{
-		Use:   "categories",
-		Short: "Show router log entry categories",
-		Run:   parseRouterLogs.ShowCategories,
+		Use:     "categories",
+		Short:   "Show router log entry categories",
+		Aliases: []string{"cat"},
+		Run:     routerLogs.ShowCategories,
 	}
 
-	parseRouterLogsCmd.AddCommand(showRouterLogCategoriesCmd)
+	parseRouterLogsCmd.AddCommand(filterRouterLogsCmd, summarizeRouterLogsCmd, showRouterLogCategoriesCmd)
 	return parseRouterLogsCmd
 }
 
-type ParseRouterLogs struct {
+type RouterLogs struct {
 	JsonLogsParser
 }
 
-func (self *ParseRouterLogs) Init() {
+func (self *RouterLogs) Init() {
 	self.filters = getRouterLogFilters()
 }
 
@@ -421,15 +438,30 @@ func getRouterLogFilters() []LogFilter {
 	return result
 }
 
-func (self *ParseRouterLogs) run(cmd *cobra.Command, args []string) error {
+func (self *RouterLogs) summarize(_ *cobra.Command, args []string) error {
 	if err := self.validate(); err != nil {
 		return err
 	}
 
-	ctx := &JsonParseContext{
-		ParseContext: ParseContext{
-			path: args[0],
-		},
+	self.handler = &LogSummaryHandler{
+		bucketSize:                  self.bucketSize,
+		bucketMatches:               map[LogFilter]int{},
+		maxUnmatchedLoggedPerBucket: self.maxUnmatched,
+		ignore:                      self.ignore,
 	}
-	return ScanJsonLines(ctx, self.summarizeLogEntry)
+
+	return ScanJsonLines(args[0], self.processLogEntry)
+}
+
+func (self *RouterLogs) filter(_ *cobra.Command, args []string) error {
+	if err := self.validate(); err != nil {
+		return err
+	}
+
+	self.handler = &LogFilterHandler{
+		maxUnmatched: self.maxUnmatched,
+		ignore:       self.ignore,
+	}
+
+	return ScanJsonLines(args[0], self.processLogEntry)
 }

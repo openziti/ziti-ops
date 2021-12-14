@@ -20,20 +20,41 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/Jeffail/gabs/v2"
-	"github.com/openziti/foundation/util/stringz"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"os"
-	"sort"
 	"strings"
 	"time"
+	"unicode"
 )
 
 type ParseContext struct {
 	path       string
+	journald   bool
 	lineNumber int
 	eof        bool
 	line       string
+	process    string
+}
+
+func (self *ParseContext) parseJournalD() {
+	if self.journald {
+		self.line = self.line[16:] // strip timestamp
+		_, self.line = splitFirst(self.line, ' ')
+		self.process, self.line = splitFirst(self.line, ':')
+		self.process, _ = splitFirst(self.process, '[')
+	}
+}
+
+func splitFirst(s string, c byte) (string, string) {
+	i := strings.IndexByte(s, c)
+	if i < 0 {
+		return "", s
+	}
+	if i == len(s)-1 {
+		return s, ""
+	}
+	return s[0:i], s[i+1:]
 }
 
 func ScanLines(ctx *ParseContext, callback func(ctx *ParseContext) error) error {
@@ -42,9 +63,24 @@ func ScanLines(ctx *ParseContext, callback func(ctx *ParseContext) error) error 
 		return err
 	}
 	scanner := bufio.NewScanner(file)
+
+	// skip first line of journald output
+	if ctx.journald {
+		if scanner.Scan() {
+			line := scanner.Text()
+			if !strings.HasPrefix(line, "-- Logs being at") {
+				if err := callback(ctx); err != nil {
+					return errors.Wrapf(err, "error parsing %v on line %v", ctx.path, ctx.lineNumber)
+				}
+			}
+			ctx.lineNumber++
+		}
+	}
+
 	for scanner.Scan() {
 		line := scanner.Text()
 		ctx.line = line
+		ctx.parseJournalD()
 		if err := callback(ctx); err != nil {
 			return errors.Wrapf(err, "error parsing %v on line %v", ctx.path, ctx.lineNumber)
 		}
@@ -77,13 +113,9 @@ func (self *JsonParseContext) GetString(path string) string {
 }
 
 func (self *JsonParseContext) ParseJsonEntry() error {
-	input := self.line
-	idx := strings.IndexByte(self.line, '{')
-	if idx < 0 {
+	input := strings.TrimLeftFunc(self.line, unicode.IsSpace)
+	if len(input) == 0 || input[0] != '{' {
 		return nil
-	}
-	if idx > 0 {
-		input = input[idx:]
 	}
 	entry, err := gabs.ParseJSON([]byte(input))
 	if err != nil {
@@ -94,7 +126,14 @@ func (self *JsonParseContext) ParseJsonEntry() error {
 	return nil
 }
 
-func ScanJsonLines(ctx *JsonParseContext, callback func(ctx *JsonParseContext) error) error {
+func ScanJsonLines(path string, callback func(ctx *JsonParseContext) error) error {
+	ctx := &JsonParseContext{
+		ParseContext: ParseContext{
+			path:     path,
+			journald: true,
+		},
+	}
+
 	return ScanLines(&ctx.ParseContext, func(*ParseContext) error {
 		if ctx.eof {
 			return callback(ctx)
@@ -104,10 +143,6 @@ func ScanJsonLines(ctx *JsonParseContext, callback func(ctx *JsonParseContext) e
 		}
 		return callback(ctx)
 	})
-}
-
-type LogMatcher interface {
-	Matches(ctx *JsonParseContext) (bool, error)
 }
 
 type LogFilter interface {
@@ -131,24 +166,31 @@ func (self *filter) Desc() string {
 }
 
 type JsonLogsParser struct {
-	bucketSize                  time.Duration
-	currentBucket               time.Time
-	filters                     []LogFilter
-	bucketMatches               map[LogFilter]int
-	unmatched                   int
-	maxUnmatchedLoggedPerBucket int
-	ignore                      []string
-	beforeTime                  string
-	afterTime                   string
-	include                     LogMatcher
+	bucketSize   time.Duration
+	filters      []LogFilter
+	maxUnmatched int
+	ignore       []string
+	beforeTime   string
+	afterTime    string
+	include      LogMatcher
+	handler      EntryHandler
 }
 
 func (self *JsonLogsParser) addCommonArgs(cmd *cobra.Command) {
-	cmd.Flags().DurationVarP(&self.bucketSize, "interval", "n", time.Hour, "Interval for which to aggregate log messages")
-	cmd.Flags().IntVarP(&self.maxUnmatchedLoggedPerBucket, "max-unmatched", "u", 1, "Maximum unmatched log messages to output per bucket")
-	cmd.Flags().StringSliceVar(&self.ignore, "ignore", nil, "Filters to ignore")
+	cmd.Flags().StringSliceVarP(&self.ignore, "ignore", "i", nil, "Filters to ignore")
 	cmd.Flags().StringVarP(&self.beforeTime, "before", "B", "", "Process only messages before this timestamp")
 	cmd.Flags().StringVarP(&self.afterTime, "after", "A", "", "Process only messages after this timestamp")
+}
+
+func (self *JsonLogsParser) addFilterArgs(cmd *cobra.Command) {
+	self.addCommonArgs(cmd)
+	cmd.Flags().IntVarP(&self.maxUnmatched, "max-unmatched", "u", 1, "Maximum unmatched log messages to output")
+}
+
+func (self *JsonLogsParser) addSummarizeArgs(cmd *cobra.Command) {
+	self.addCommonArgs(cmd)
+	cmd.Flags().DurationVarP(&self.bucketSize, "interval", "n", time.Hour, "Interval for which to aggregate log messages")
+	cmd.Flags().IntVarP(&self.maxUnmatched, "max-unmatched", "u", 1, "Maximum unmatched log messages to output per bucket")
 }
 
 func (self *JsonLogsParser) validate() error {
@@ -206,13 +248,20 @@ func (self *JsonLogsParser) ShowCategories(*cobra.Command, []string) {
 	}
 }
 
-func (self *JsonLogsParser) summarizeLogEntry(ctx *JsonParseContext) error {
+type EntryHandler interface {
+	HandleEnd(ctx *JsonParseContext)
+	HandleNewLine(ctx *JsonParseContext) error
+	HandleMatch(ctx *JsonParseContext, logFilter LogFilter) error
+	HandleUnmatched(ctx *JsonParseContext) error
+}
+
+func (self *JsonLogsParser) processLogEntry(ctx *JsonParseContext) error {
 	if ctx.eof {
-		self.dumpBucket()
+		self.handler.HandleEnd(ctx)
 		return nil
 	}
 
-	if err := self.bucket(ctx); err != nil {
+	if err := self.handler.HandleNewLine(ctx); err != nil {
 		return err
 	}
 
@@ -231,57 +280,9 @@ func (self *JsonLogsParser) summarizeLogEntry(ctx *JsonParseContext) error {
 		}
 
 		if match {
-			current := self.bucketMatches[filter]
-			self.bucketMatches[filter] = current + 1
-			return nil
+			return self.handler.HandleMatch(ctx, filter)
 		}
 	}
 
-	self.unmatched++
-	if self.unmatched <= self.maxUnmatchedLoggedPerBucket {
-		fmt.Printf("WARN: unmatched line: %v\n\n", ctx.line)
-	}
-
-	return nil
-}
-
-func (self *JsonLogsParser) bucket(ctx *JsonParseContext) error {
-	s := ctx.GetString("time")
-	t, err := time.Parse(time.RFC3339, s)
-	if err != nil {
-		return errors.Errorf("time is in an unexpected format: %v", s)
-	}
-	interval := t.Truncate(self.bucketSize)
-	if interval != self.currentBucket {
-		if !self.currentBucket.IsZero() {
-			self.dumpBucket()
-		}
-		self.currentBucket = interval
-		self.bucketMatches = map[LogFilter]int{}
-		self.unmatched = 0
-	}
-	return nil
-}
-
-func (self *JsonLogsParser) dumpBucket() {
-	var filters []LogFilter
-	for k := range self.bucketMatches {
-		if !stringz.Contains(self.ignore, k.Id()) {
-			filters = append(filters, k)
-		}
-	}
-	sort.Slice(filters, func(i, j int) bool {
-		return filters[i].Id() < filters[j].Id()
-	})
-	if len(filters) == 0 && self.unmatched == 0 {
-		return
-	}
-	fmt.Printf("%v\n---------------------------------------------------\n", self.currentBucket.Format(time.RFC3339))
-	for _, filter := range filters {
-		fmt.Printf("    %v: %0000v\n", filter.Id(), self.bucketMatches[filter])
-	}
-	if self.unmatched > 0 {
-		fmt.Printf("    unmatched: %0000v\n", self.unmatched)
-	}
-	fmt.Println()
+	return self.handler.HandleUnmatched(ctx)
 }

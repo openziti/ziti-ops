@@ -21,34 +21,53 @@ import (
 )
 
 func NewCtrlLogsCommand() *cobra.Command {
-	parseControllerLogs := &ParseControllerLogs{}
-	parseControllerLogs.Init()
+	controllerLogs := &ControllerLogs{}
+	controllerLogs.Init()
 
-	parseControllerLogsCmd := &cobra.Command{
-		Use:   "ctrl",
-		Short: "Parse controller logs",
-		Args:  cobra.ExactArgs(1),
-		RunE:  parseControllerLogs.run,
+	controllerLogsCmd := &cobra.Command{
+		Use:     "controller-logs",
+		Short:   "work with controller logs",
+		Args:    cobra.ExactArgs(1),
+		Aliases: []string{"cl"},
 	}
 
-	parseControllerLogs.addCommonArgs(parseControllerLogsCmd)
+	filterControllerLogsCmd := &cobra.Command{
+		Use:     "filter",
+		Short:   "filter controller log entries",
+		Aliases: []string{"f"},
+		RunE:    controllerLogs.filter,
+	}
+
+	controllerLogs.addFilterArgs(filterControllerLogsCmd)
+
+	summarizeControllerLogsCmd := &cobra.Command{
+		Use:     "summarize",
+		Short:   "Show controller log entry summaries",
+		Aliases: []string{"s"},
+		RunE:    controllerLogs.summarize,
+	}
+
+	controllerLogs.addSummarizeArgs(summarizeControllerLogsCmd)
+
+	controllerLogs.addFilterArgs(controllerLogsCmd)
 
 	showControllerLogCategoriesCmd := &cobra.Command{
-		Use:   "categories",
-		Short: "Show controller log entry categories",
-		Run:   parseControllerLogs.ShowCategories,
+		Use:     "categories",
+		Short:   "Show controller log entry categories",
+		Aliases: []string{"cat"},
+		Run:     controllerLogs.ShowCategories,
 	}
 
-	parseControllerLogsCmd.AddCommand(showControllerLogCategoriesCmd)
+	controllerLogsCmd.AddCommand(filterControllerLogsCmd, summarizeControllerLogsCmd, showControllerLogCategoriesCmd)
 
-	return parseControllerLogsCmd
+	return controllerLogsCmd
 }
 
-type ParseControllerLogs struct {
+type ControllerLogs struct {
 	JsonLogsParser
 }
 
-func (self *ParseControllerLogs) Init() {
+func (self *ControllerLogs) Init() {
 	self.filters = getControllerLogFilters()
 }
 
@@ -124,6 +143,22 @@ func getControllerLogFilters() []LogFilter {
 				FieldStartsWith("msg", "http: TLS handshake error"),
 				FieldContains("msg", "tls: received record with version 301 when expecting version 303"),
 			)},
+		&filter{
+			id:   "TLS_BAD_RECORD_MAC",
+			desc: "during TLS handshake got a bad record MAC",
+			LogMatcher: AndMatchers(
+				FieldEquals("file", ""),
+				FieldStartsWith("msg", "http: TLS handshake error"),
+				FieldContains("msg", "tls: bad record MAC"),
+			)},
+		&filter{
+			id:   "TLS_NOT_TLS",
+			desc: "during TLS handshake the first record did not look a like TLS handshake",
+			LogMatcher: AndMatchers(
+				FieldEquals("file", ""),
+				FieldStartsWith("msg", "http: TLS handshake error"),
+				FieldContains("msg", "tls: first record does not look like a TLS handshake"),
+			)},
 	)
 
 	// channel
@@ -143,6 +178,30 @@ func getControllerLogFilters() []LogFilter {
 				FieldContains("file", "channel2/classic_listener.go"),
 				FieldContains("msg", "error receiving hello from [tls:"),
 				FieldContains("msg", "receive error (EOF)"),
+			)},
+		&filter{
+			id:   "CHANNEL_TLS_NO_CERT",
+			desc: "during tls accept the client did not provide a certificate",
+			LogMatcher: AndMatchers(
+				FieldContains("file", "channel2/classic_listener.go"),
+				FieldContains("msg", "error receiving hello from [tls:"),
+				FieldContains("msg", "tls: client didn't provide a certificate"),
+			)},
+		&filter{
+			id:   "CHANNEL_ACCEPT_PEER_RESET",
+			desc: "during accept the client reset the connection",
+			LogMatcher: AndMatchers(
+				FieldContains("file", "channel2/classic_listener.go"),
+				FieldContains("msg", "error receiving hello from [tls:"),
+				FieldContains("msg", "read: connection reset by peer"),
+			)},
+		&filter{
+			id:   "CHANNEL_ACCEPT_TIMEOUT",
+			desc: "during accept the client connection timed out",
+			LogMatcher: AndMatchers(
+				FieldContains("file", "channel2/classic_listener.go"),
+				FieldContains("msg", "error receiving hello from [tls:"),
+				FieldContains("msg", "i/o timeout"),
 			)},
 	)
 
@@ -274,6 +333,14 @@ func getControllerLogFilters() []LogFilter {
 				FieldContains("error", "source unreachable"),
 			)},
 		&filter{
+			id:   "CIRCUIT_CREATE_ERR_NO_TERMINATORS",
+			desc: "circuit creation failed because the service has no terminators",
+			LogMatcher: AndMatchers(
+				FieldContains("file", "handler_edge_ctrl/common.go"),
+				FieldEquals("msg", "responded with error"),
+				FieldContains("error", "has no terminators"),
+			)},
+		&filter{
 			id:   "CIRCUIT_CREATE_ERR_CONN_REFUSED",
 			desc: "circuit could not be created because the terminating router failed to dial the server with the error 'connection refused'",
 			LogMatcher: AndMatchers(
@@ -299,6 +366,21 @@ func getControllerLogFilters() []LogFilter {
 				FieldContains("file", "channel2/classic_listener.go"),
 				FieldContains("msg", "connection handler error"),
 				FieldContains("msg", "router already connected"),
+			)},
+		&filter{
+			id:   "ROUTER_UNENROLLED",
+			desc: "router tried to connected but either the router doesn't exist or the fingerprint didn't match",
+			LogMatcher: AndMatchers(
+				FieldContains("file", "channel2/classic_listener.go"),
+				FieldContains("msg", "connection handler error"),
+				FieldContains("msg", "unenrolled router"),
+			)},
+		&filter{
+			id:   "ROUTER_NOT_TUNNELER",
+			desc: "router is trying to use embedded tunneler functionality but the router is not configured as a tunneler",
+			LogMatcher: AndMatchers(
+				FieldEquals("error", "tunneling not enabled"),
+				FieldContains("file", "handler_edge_ctrl"),
 			)},
 		&filter{
 			id:   "REST_RESPONSE_TIMEOUT",
@@ -328,15 +410,30 @@ func getControllerLogFilters() []LogFilter {
 	return result
 }
 
-func (self *ParseControllerLogs) run(cmd *cobra.Command, args []string) error {
+func (self *ControllerLogs) summarize(cmd *cobra.Command, args []string) error {
 	if err := self.validate(); err != nil {
 		return err
 	}
 
-	ctx := &JsonParseContext{
-		ParseContext: ParseContext{
-			path: args[0],
-		},
+	self.handler = &LogSummaryHandler{
+		bucketSize:                  self.bucketSize,
+		bucketMatches:               map[LogFilter]int{},
+		maxUnmatchedLoggedPerBucket: self.maxUnmatched,
+		ignore:                      self.ignore,
 	}
-	return ScanJsonLines(ctx, self.summarizeLogEntry)
+
+	return ScanJsonLines(args[0], self.processLogEntry)
+}
+
+func (self *ControllerLogs) filter(cmd *cobra.Command, args []string) error {
+	if err := self.validate(); err != nil {
+		return err
+	}
+
+	self.handler = &LogFilterHandler{
+		maxUnmatched: self.maxUnmatched,
+		ignore:       self.ignore,
+	}
+
+	return ScanJsonLines(args[0], self.processLogEntry)
 }

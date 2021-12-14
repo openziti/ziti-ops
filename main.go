@@ -45,7 +45,7 @@ func init() {
 		},
 	})
 
-	root.AddCommand(NewLogsCommand())
+	root.AddCommand(logs.NewRouterLogsCmd(), logs.NewCtrlLogsCommand())
 	root.AddCommand(debug_db.NewDebugDbCmd())
 	root.AddCommand(split_stackdumps.NewSplitStackdumpsCmd())
 }
@@ -69,18 +69,6 @@ var root = &cobra.Command{
 			// let logrus do its own thing
 		}
 	},
-}
-
-func NewLogsCommand() *cobra.Command {
-	logsCmd := &cobra.Command{
-		Use:   "logs",
-		Short: "commands related to analyzing various ziti component logs",
-	}
-
-	logsCmd.AddCommand(logs.NewRouterLogsCmd())
-	logsCmd.AddCommand(logs.NewCtrlLogsCommand())
-
-	return logsCmd
 }
 
 func main() {
