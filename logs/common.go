@@ -18,8 +18,10 @@ package logs
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"github.com/Jeffail/gabs/v2"
+	"github.com/openziti/foundation/util/stringz"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"os"
@@ -29,21 +31,30 @@ import (
 )
 
 type ParseContext struct {
-	path       string
-	journald   bool
-	lineNumber int
-	eof        bool
-	line       string
-	process    string
+	path              string
+	journaldTimestamp string
+	journald          bool
+	lineNumber        int
+	eof               bool
+	line              string
+	process           string
 }
 
-func (self *ParseContext) parseJournalD() {
+func (self *ParseContext) parseJournald() {
 	if self.journald {
+		self.journaldTimestamp = self.line[16:]
 		self.line = self.line[16:] // strip timestamp
 		_, self.line = splitFirst(self.line, ' ')
 		self.process, self.line = splitFirst(self.line, ':')
 		self.process, _ = splitFirst(self.process, '[')
 	}
+}
+
+func (self *ParseContext) getJournaldTime() (time.Time, error) {
+	if self.journaldTimestamp == "" {
+		return time.Time{}, errors.Errorf("no journald timestamp found on line %v", self.lineNumber)
+	}
+	return time.Parse("Jan 02 15:04:05", self.journaldTimestamp)
 }
 
 func splitFirst(s string, c byte) (string, string) {
@@ -80,7 +91,7 @@ func ScanLines(ctx *ParseContext, callback func(ctx *ParseContext) error) error 
 	for scanner.Scan() {
 		line := scanner.Text()
 		ctx.line = line
-		ctx.parseJournalD()
+		ctx.parseJournald()
 		if err := callback(ctx); err != nil {
 			return errors.Wrapf(err, "error parsing %v on line %v", ctx.path, ctx.lineNumber)
 		}
@@ -92,11 +103,19 @@ func ScanLines(ctx *ParseContext, callback func(ctx *ParseContext) error) error 
 
 type JsonParseContext struct {
 	ParseContext
-	entry *gabs.Container
-	cache map[string]string
+	entry   *gabs.Container
+	cache   map[string]string
+	systemd *string
+	nonJson bytes.Buffer
 }
 
 func (self *JsonParseContext) GetString(path string) string {
+	if path == "nonJson" {
+		return self.nonJson.String()
+	}
+	if path == "systemd" {
+		return stringz.OrEmpty(self.systemd)
+	}
 	if s, found := self.cache[path]; found {
 		return s
 	}
@@ -113,10 +132,12 @@ func (self *JsonParseContext) GetString(path string) string {
 }
 
 func (self *JsonParseContext) ParseJsonEntry() error {
+	self.entry = nil
 	input := strings.TrimLeftFunc(self.line, unicode.IsSpace)
 	if len(input) == 0 || input[0] != '{' {
 		return nil
 	}
+
 	entry, err := gabs.ParseJSON([]byte(input))
 	if err != nil {
 		return err
@@ -124,6 +145,18 @@ func (self *JsonParseContext) ParseJsonEntry() error {
 	self.entry = entry
 	self.cache = map[string]string{}
 	return nil
+}
+
+func (self *JsonParseContext) HandleNonJson() {
+	self.systemd = nil
+	if self.entry == nil {
+		if self.process != "systemd" {
+			self.nonJson.WriteString(self.line)
+			self.nonJson.WriteByte('\n')
+		}
+	} else {
+		self.systemd = &self.line
+	}
 }
 
 func ScanJsonLines(path string, callback func(ctx *JsonParseContext) error) error {
@@ -166,18 +199,18 @@ func (self *filter) Desc() string {
 }
 
 type JsonLogsParser struct {
-	bucketSize   time.Duration
-	filters      []LogFilter
-	maxUnmatched int
-	ignore       []string
-	beforeTime   string
-	afterTime    string
-	include      LogMatcher
-	handler      EntryHandler
+	bucketSize     time.Duration
+	filters        []LogFilter
+	maxUnmatched   int
+	ignore         []string
+	includeFilters []string
+	beforeTime     string
+	afterTime      string
+	include        LogMatcher
+	handler        EntryHandler
 }
 
 func (self *JsonLogsParser) addCommonArgs(cmd *cobra.Command) {
-	cmd.Flags().StringSliceVarP(&self.ignore, "ignore", "i", nil, "Filters to ignore")
 	cmd.Flags().StringVarP(&self.beforeTime, "before", "B", "", "Process only messages before this timestamp")
 	cmd.Flags().StringVarP(&self.afterTime, "after", "A", "", "Process only messages after this timestamp")
 }
@@ -185,12 +218,14 @@ func (self *JsonLogsParser) addCommonArgs(cmd *cobra.Command) {
 func (self *JsonLogsParser) addFilterArgs(cmd *cobra.Command) {
 	self.addCommonArgs(cmd)
 	cmd.Flags().IntVarP(&self.maxUnmatched, "max-unmatched", "u", 1, "Maximum unmatched log messages to output")
+	cmd.Flags().StringSliceVarP(&self.includeFilters, "include", "i", nil, "Filters to include")
 }
 
 func (self *JsonLogsParser) addSummarizeArgs(cmd *cobra.Command) {
 	self.addCommonArgs(cmd)
 	cmd.Flags().DurationVarP(&self.bucketSize, "interval", "n", time.Hour, "Interval for which to aggregate log messages")
 	cmd.Flags().IntVarP(&self.maxUnmatched, "max-unmatched", "u", 1, "Maximum unmatched log messages to output per bucket")
+	cmd.Flags().StringSliceVarP(&self.ignore, "ignore", "i", nil, "Filters to ignore")
 }
 
 func (self *JsonLogsParser) validate() error {
@@ -257,6 +292,11 @@ type EntryHandler interface {
 
 func (self *JsonLogsParser) processLogEntry(ctx *JsonParseContext) error {
 	if ctx.eof {
+		if ctx.nonJson.Len() > 0 {
+			if err := self.runMatchers(ctx); err != nil {
+				return err
+			}
+		}
 		self.handler.HandleEnd(ctx)
 		return nil
 	}
@@ -273,6 +313,47 @@ func (self *JsonLogsParser) processLogEntry(ctx *JsonParseContext) error {
 		return nil
 	}
 
+	ctx.HandleNonJson()
+
+	// if we haven't hit the end of the non-json block, don't match it yet
+	if ctx.nonJson.Len() > 0 && ctx.systemd == nil && ctx.entry == nil {
+		return nil
+	}
+
+	if ctx.nonJson.Len() > 0 {
+		if err := self.checkNonJson(ctx); err != nil {
+			return err
+		}
+	}
+
+	err = self.runMatchers(ctx)
+	if ctx.nonJson.Len() > 0 {
+		ctx.nonJson.Truncate(0)
+	}
+	return err
+}
+
+func (self *JsonLogsParser) checkNonJson(ctx *JsonParseContext) error {
+	// we're past the non-json, so save current line data and clear it
+	entry := ctx.entry
+	line := ctx.line
+	ctx.line = ctx.nonJson.String()
+	ctx.entry = nil
+
+	if err := self.runMatchers(ctx); err != nil {
+		return err
+	}
+
+	ctx.nonJson.Truncate(0)
+
+	// restore current line data
+	ctx.entry = entry
+	ctx.line = line
+
+	return nil
+}
+
+func (self *JsonLogsParser) runMatchers(ctx *JsonParseContext) error {
 	for _, filter := range self.filters {
 		match, err := filter.Matches(ctx)
 		if err != nil {

@@ -407,6 +407,15 @@ func getControllerLogFilters() []LogFilter {
 				FieldStartsWith("msg", "required session did not match service or api session"),
 			)},
 	)
+
+	// panics
+	result = append(result,
+		&filter{
+			id:         "PANIC_UNKNOWN",
+			desc:       "uncategorized panic",
+			LogMatcher: FieldContains("nonJson", "panic"),
+		},
+	)
 	return result
 }
 
@@ -432,7 +441,7 @@ func (self *ControllerLogs) filter(cmd *cobra.Command, args []string) error {
 
 	self.handler = &LogFilterHandler{
 		maxUnmatched: self.maxUnmatched,
-		ignore:       self.ignore,
+		include:      self.includeFilters,
 	}
 
 	return ScanJsonLines(args[0], self.processLogEntry)

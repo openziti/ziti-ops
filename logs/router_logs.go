@@ -460,7 +460,7 @@ func (self *RouterLogs) filter(_ *cobra.Command, args []string) error {
 
 	self.handler = &LogFilterHandler{
 		maxUnmatched: self.maxUnmatched,
-		ignore:       self.ignore,
+		include:      self.includeFilters,
 	}
 
 	return ScanJsonLines(args[0], self.processLogEntry)

@@ -1,4 +1,8 @@
-# Releaes 0.2.1
+# Release 0.1.3
+
+Initial support for panic filtering
+
+# Release 0.1.2
 
 Add TODO file
 

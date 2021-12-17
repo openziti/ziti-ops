@@ -18,12 +18,13 @@ package logs
 
 import (
 	"fmt"
+	"github.com/openziti/foundation/util/stringz"
 )
 
 type LogFilterHandler struct {
 	unmatched    int
 	maxUnmatched int
-	ignore       []string
+	include      []string
 }
 
 func (self *LogFilterHandler) HandleNewLine(ctx *JsonParseContext) error {
@@ -33,7 +34,9 @@ func (self *LogFilterHandler) HandleNewLine(ctx *JsonParseContext) error {
 func (self *LogFilterHandler) HandleEnd(*JsonParseContext) {}
 
 func (self *LogFilterHandler) HandleMatch(ctx *JsonParseContext, logFilter LogFilter) error {
-	fmt.Println(ctx.line)
+	if stringz.Contains(self.include, logFilter.Id()) {
+		fmt.Println(ctx.line)
+	}
 	return nil
 }
 

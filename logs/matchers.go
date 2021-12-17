@@ -142,11 +142,18 @@ func (self *EntryFieldMatchesMatcher) Matches(ctx *JsonParseContext) (bool, erro
 type TimePredicate func(t time.Time) bool
 
 func (self TimePredicate) Matches(ctx *JsonParseContext) (bool, error) {
-	ts := ctx.GetString("time")
-	if ts == "" {
-		return true, nil
+	if ctx.entry != nil {
+		ts := ctx.GetString("time")
+		if ts == "" {
+			return true, nil
+		}
+		t, err := time.Parse(time.RFC3339, ts)
+		if err != nil {
+			return false, err
+		}
+		return self(t), nil
 	}
-	t, err := time.Parse(time.RFC3339, ts)
+	t, err := ctx.getJournaldTime()
 	if err != nil {
 		return false, err
 	}
