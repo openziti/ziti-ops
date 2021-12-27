@@ -159,6 +159,14 @@ func getControllerLogFilters() []LogFilter {
 				FieldStartsWith("msg", "http: TLS handshake error"),
 				FieldContains("msg", "tls: first record does not look like a TLS handshake"),
 			)},
+		&filter{
+			id:   "TLS_UNSUPPORT_APP_PROTOCOLS",
+			desc: "during TLS handshake the client requested unsupport application protocols",
+			LogMatcher: AndMatchers(
+				FieldEquals("file", ""),
+				FieldStartsWith("msg", "http: TLS handshake error"),
+				FieldContains("msg", "tls: client requested unsupported application protocols"),
+			)},
 	)
 
 	// channel
@@ -252,6 +260,48 @@ func getControllerLogFilters() []LogFilter {
 			LogMatcher: AndMatchers(
 				FieldContains("file", "network/fault.go"),
 				FieldStartsWith("msg", "sent unroute for "),
+			)},
+	)
+
+	// links
+	result = append(result,
+		&filter{
+			id:   "LINK_FAULT",
+			desc: "received link fault from a router",
+			LogMatcher: AndMatchers(
+				FieldContains("file", "handler_ctrl/fault.go"),
+				FieldStartsWith("msg", "link fault"),
+			)},
+		&filter{
+			id:   "LINK_REROUTE",
+			desc: "routing circuits using a link, after link fault",
+			LogMatcher: AndMatchers(
+				FieldContains("file", "network/network.go"),
+				FieldStartsWith("msg", "changed link"),
+			)},
+		&filter{
+			id:   "LINK_REROUTE2", // removed post 0.24.2
+			desc: "rerouting a link after it faulted",
+			LogMatcher: AndMatchers(
+				FieldContains("file", "network/network.go"),
+				FieldContains("func", "rerouteLink"),
+				FieldMatches("msg", "link.*changed"),
+			)},
+		&filter{
+			id:   "LINK_FAILED",
+			desc: "a router notified us that a link failed",
+			LogMatcher: AndMatchers(
+				FieldContains("file", "network/network.go"),
+				FieldContains("func", "LinkConnected"),
+				FieldMatches("msg", "link.*failed"),
+			)},
+		&filter{
+			id:   "LINK_REMOVED",
+			desc: "removing a link that's been failed long enough that it hit the threshold (30s)",
+			LogMatcher: AndMatchers(
+				FieldContains("file", "network/assembly.go"),
+				FieldContains("func", "clean"),
+				FieldStartsWith("msg", "removing"),
 			)},
 	)
 
@@ -355,6 +405,21 @@ func getControllerLogFilters() []LogFilter {
 				FieldContains("file", "network/routesender.go"),
 				FieldMatches("msg", "received failed route status.*connect: connection refused"),
 			)},
+		&filter{
+			id:   "CIRCUIT_CREATE_ERR_IO_TIMEOUT",
+			desc: "circuit could not be created because the terminating router failed to dial the server with the error 'i/o timeout'",
+			LogMatcher: AndMatchers(
+				FieldContains("file", "network/network.go"),
+				FieldMatches("msg", "route attempt.*failed.*dial.*: i/o timeout"),
+			)},
+		// redundant
+		&filter{
+			id:   "CIRCUIT_CREATE_ERR_IO_TIMEOUT-2",
+			desc: "circuit could not be created because the terminating router failed to dial the server with the error 'i/o timeout'",
+			LogMatcher: AndMatchers(
+				FieldContains("file", "network/routesender.go"),
+				FieldMatches("msg", "received failed route status.*dial.*: i/o timeout"),
+			)},
 	)
 
 	// misc
@@ -386,8 +451,11 @@ func getControllerLogFilters() []LogFilter {
 			id:   "REST_RESPONSE_TIMEOUT",
 			desc: "while trying to respond to an http request, the handler timed out",
 			LogMatcher: AndMatchers(
-				FieldContains("file", "response/responder.go"),
-				FieldEquals("error", "Handler timeout"),
+				OrMatchers(
+					FieldContains("file", "response/responder.go"),
+					FieldContains("file", "controller/api/responder.go"),
+				),
+				FieldContains("error", "Handler timeout"),
 				FieldEquals("msg", "could not respond with error, producer errored"),
 			)},
 		// move to debug? Can probably detect not found
@@ -405,6 +473,21 @@ func getControllerLogFilters() []LogFilter {
 			LogMatcher: AndMatchers(
 				FieldContains("file", "common_tunnel.go"),
 				FieldStartsWith("msg", "required session did not match service or api session"),
+			)},
+		&filter{
+			id:   "SNAPSHOT_DB",
+			desc: "the database snapshot has been created",
+			LogMatcher: AndMatchers(
+				FieldContains("file", "network/network.go"),
+				FieldContains("func", "SnapshotDatabase"),
+				FieldStartsWith("msg", "snapshotting database"),
+			)},
+		&filter{
+			id:   "XMGMT_CLOSED", // removed to debug post 0.24.2
+			desc: "a management channel connection was closed",
+			LogMatcher: AndMatchers(
+				FieldContains("file", "handler_mgmt/close.go"),
+				FieldStartsWith("msg", "closing Xmgmt instances for"),
 			)},
 	)
 

@@ -1,3 +1,7 @@
+# Release 0.1.4
+
+More filters
+
 # Release 0.1.3
 
 Initial support for panic filtering

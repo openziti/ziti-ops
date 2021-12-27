@@ -78,7 +78,11 @@ func getRouterLogFilters() []LogFilter {
 			desc: "a circuit has been idle for at least one minute and the controller will be checked to see if the circuit is still valid",
 			LogMatcher: AndMatchers(
 				FieldContains("file", "forwarder/scanner.go"),
-				FieldContains("msg", " idle after "),
+				OrMatchers(
+					FieldContains("msg", " idle after "),
+					FieldContains("msg", " idle for "),
+					FieldMatches("msg", "circuit exceeds idle threshold"),
+				),
 			)},
 		&filter{
 			id:   "IDLE_CONF_SENT",
@@ -329,6 +333,30 @@ func getRouterLogFilters() []LogFilter {
 			LogMatcher: AndMatchers(
 				FieldStartsWith("msg", "accepted new link"),
 				FieldContains("file", "router/accepter.go"),
+			)},
+		&filter{
+			id:   "LINK_CTRL_START",
+			desc: "goroutine for handling link control messages started",
+			LogMatcher: AndMatchers(
+				FieldEquals("msg", "starting"),
+				FieldContains("file", "handler_link/control.go"),
+			)},
+		&filter{
+			id:   "LINK_CTRL_EXIT",
+			desc: "goroutine for handling link control messages exited",
+			LogMatcher: AndMatchers(
+				FieldEquals("msg", "exiting"),
+				FieldContains("file", "handler_link/control.go"),
+			)},
+		&filter{
+			id:   "LINK_VERIFY_SUCCESS",
+			desc: "link was successfully verified with the controller",
+			LogMatcher: AndMatchers(
+				FieldContains("file", "handler_link/accepter.go"),
+				OrMatchers(
+					FieldStartsWith("msg", "successfully verify link"),
+					FieldStartsWith("msg", "successfully verified link"),
+				),
 			)},
 	)
 
