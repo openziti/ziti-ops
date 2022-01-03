@@ -42,11 +42,15 @@ type ParseContext struct {
 
 func (self *ParseContext) parseJournald() {
 	if self.journald {
-		self.journaldTimestamp = self.line[16:]
-		self.line = self.line[16:] // strip timestamp
-		_, self.line = splitFirst(self.line, ' ')
-		self.process, self.line = splitFirst(self.line, ':')
-		self.process, _ = splitFirst(self.process, '[')
+		if self.line[0] == '-' {
+			self.process = "journald"
+		} else {
+			self.journaldTimestamp = self.line[16:]
+			self.line = self.line[16:] // strip timestamp
+			_, self.line = splitFirst(self.line, ' ')
+			self.process, self.line = splitFirst(self.line, ':')
+			self.process, _ = splitFirst(self.process, '[')
+		}
 	}
 }
 
@@ -166,6 +170,13 @@ func ScanJsonLines(path string, callback func(ctx *JsonParseContext) error) erro
 			journald: true,
 		},
 	}
+
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Printf("panic parsing line %v: %v with err: %v\n", ctx.lineNumber, ctx.line, err)
+			panic(err)
+		}
+	}()
 
 	return ScanLines(&ctx.ParseContext, func(*ParseContext) error {
 		if ctx.eof {

@@ -191,6 +191,22 @@ func getRouterLogFilters() []LogFilter {
 				FieldContains("file", "channel2/classic_listener.go"),
 			)},
 		&filter{
+			id:   "CHANNEL_TLS_ERR_UNKNOWN_CA",
+			desc: "a connection attempt was made to a channel TLS listener but the certificates certificate authority is unknown",
+			LogMatcher: AndMatchers(
+				FieldStartsWith("msg", "error receiving hello from "),
+				FieldContains("msg", "tls: unknown certificate authority"),
+				FieldContains("file", "channel2/classic_listener.go"),
+			)},
+		&filter{
+			id:   "CHANNEL_TLS_CONN_RESET_BY_PEER",
+			desc: "a connection attempt was made to a channel TLS listener but the connection was reset by the peer",
+			LogMatcher: AndMatchers(
+				FieldStartsWith("msg", "error receiving hello from "),
+				FieldContains("msg", "read: connection reset by peer"),
+				FieldContains("file", "channel2/classic_listener.go"),
+			)},
+		&filter{
 			id:   "CHANNEL_TLS_ERR_TIMEOUT",
 			desc: "a connection attempt was made to a TLS listener but it timed out",
 			LogMatcher: AndMatchers(
@@ -230,6 +246,26 @@ func getRouterLogFilters() []LogFilter {
 			LogMatcher: AndMatchers(
 				FieldEquals("msg", "accepted connection"),
 				FieldContains("file", "transport/tcp/listener.go"),
+			)},
+	)
+
+	// dial egress messages
+	result = append(result,
+		&filter{
+			id:   "EGRESS_DIAL_ERR_BIND_FAIL",
+			desc: "the dial failed because the requested address could not be assigned",
+			LogMatcher: AndMatchers(
+				FieldEquals("msg", "failed to connect egress"),
+				FieldContains("file", "handler_ctrl/route.go"),
+				FieldContains("error", "bind: cannot assign requested address"),
+			)},
+		&filter{
+			id:   "EGRESS_DIAL_ERR_CONN_REFUSED",
+			desc: "the dial failed because the dialed server refused the connection",
+			LogMatcher: AndMatchers(
+				FieldEquals("msg", "failed to connect egress"),
+				FieldContains("file", "handler_ctrl/route.go"),
+				FieldContains("error", "connect: connection refused"),
 			)},
 	)
 
@@ -461,7 +497,36 @@ func getRouterLogFilters() []LogFilter {
 				FieldEquals("msg", "tunnel failed"),
 				FieldStartsWith("error", "timed out after"),
 				FieldContains("file", "tunnel/tunnel.go"),
-			)})
+			)},
+		&filter{
+			id:   "TUNNEL_UDP_READ_EVENT",
+			desc: "a router embedded tunneler received a UDP packet",
+			LogMatcher: AndMatchers(
+				FieldStartsWith("msg", "received datagram from"),
+				FieldContains("file", "tproxy/tproxy_linux.go"),
+			)},
+		&filter{
+			id:   "TUNNEL_UDP_READ_EVENT-2",
+			desc: "a router embedded tunneler received a UDP packet",
+			LogMatcher: AndMatchers(
+				FieldContains("file", "tproxy/tproxy_linux.go"),
+				FieldMatches("msg", "received.*bytes for conn"),
+			)},
+		&filter{
+			id:   "TUNNEL_UDP_CONN_CREATED",
+			desc: "a router embedded tunneler create a virtual UDP connection",
+			LogMatcher: AndMatchers(
+				FieldStartsWith("msg", "Creating separate UDP socket with list addr"),
+				FieldContains("file", "tproxy/tproxy_linux.go"),
+			)},
+		&filter{
+			id:   "TUNNEL_FAILED",
+			desc: "a router embedded tunneler failed to establish a circuit for a tunnel",
+			LogMatcher: AndMatchers(
+				FieldEquals("msg", "tunnel failed"),
+				FieldContains("file", "tunnel/tunnel.go"),
+			)},
+	)
 
 	return result
 }

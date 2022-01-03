@@ -1,3 +1,9 @@
+# Release 0.1.5
+
+* More filters
+* Add output on panic about problem line
+* Handle journald output of lines starting with -
+
 # Release 0.1.4
 
 More filters
