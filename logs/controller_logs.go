@@ -20,6 +20,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var OutputFormat = "text"
+
 func NewCtrlLogsCommand() *cobra.Command {
 	controllerLogs := &ControllerLogs{}
 	controllerLogs.Init()
@@ -46,6 +48,8 @@ func NewCtrlLogsCommand() *cobra.Command {
 		Aliases: []string{"s"},
 		RunE:    controllerLogs.summarize,
 	}
+
+	summarizeControllerLogsCmd.Flags().StringVarP(&OutputFormat, "output", "o", "text", "Specify output format: [text|json]")
 
 	controllerLogs.addSummarizeArgs(summarizeControllerLogsCmd)
 
@@ -512,6 +516,7 @@ func (self *ControllerLogs) summarize(cmd *cobra.Command, args []string) error {
 		bucketMatches:               map[LogFilter]int{},
 		maxUnmatchedLoggedPerBucket: self.maxUnmatched,
 		ignore:                      self.ignore,
+		formatter: 					 OutputFormat,
 	}
 
 	return ScanJsonLines(args[0], self.processLogEntry)
