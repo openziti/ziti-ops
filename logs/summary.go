@@ -83,6 +83,7 @@ func (self *LogSummaryHandler) dumpBucket() {
 	} else {
 		self.dumpBucketText()
 	}
+
 }
 
 func (self *LogSummaryHandler) dumpBucketText() {
@@ -133,7 +134,7 @@ func (self *LogSummaryHandler) dumpBucketJson() {
 
 	j, err := json.Marshal(model)
 	if err != nil {
-
+		panic(err)
 	}
 
 	fmt.Printf("%s\n", string(j))
