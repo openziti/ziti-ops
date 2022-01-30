@@ -17,6 +17,7 @@
 package logs
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/openziti/foundation/util/stringz"
 	"github.com/pkg/errors"
@@ -31,6 +32,7 @@ type LogSummaryHandler struct {
 	unmatched                   int
 	maxUnmatchedLoggedPerBucket int
 	ignore                      []string
+	formatter 					string
 }
 
 func (self *LogSummaryHandler) HandleNewLine(ctx *JsonParseContext) error {
@@ -67,13 +69,24 @@ func (self *LogSummaryHandler) HandleUnmatched(ctx *JsonParseContext) error {
 	if ctx.entry != nil {
 		self.unmatched++
 		if self.unmatched <= self.maxUnmatchedLoggedPerBucket {
-			fmt.Printf("WARN: unmatched line: %v\n\n", ctx.line)
+			if self.formatter == "text" {
+				fmt.Printf("WARN: unmatched line: %v\n\n", ctx.line)
+			}
 		}
 	}
 	return nil
 }
 
 func (self *LogSummaryHandler) dumpBucket() {
+	if self.formatter == "json" {
+		self.dumpBucketJson()
+	} else {
+		self.dumpBucketText()
+	}
+
+}
+
+func (self *LogSummaryHandler) dumpBucketText() {
 	var filters []LogFilter
 	for k := range self.bucketMatches {
 		if !stringz.Contains(self.ignore, k.Id()) {
@@ -94,4 +107,36 @@ func (self *LogSummaryHandler) dumpBucket() {
 		fmt.Printf("    unmatched: %0000v\n", self.unmatched)
 	}
 	fmt.Println()
+}
+
+func (self *LogSummaryHandler) dumpBucketJson() {
+	var filters []LogFilter
+	for k := range self.bucketMatches {
+		if !stringz.Contains(self.ignore, k.Id()) {
+			filters = append(filters, k)
+		}
+	}
+	sort.Slice(filters, func(i, j int) bool {
+		return filters[i].Id() < filters[j].Id()
+	})
+	if len(filters) == 0 && self.unmatched == 0 {
+		return
+	}
+
+	model := make(map[string]interface{})
+	model["timestamp"] = self.currentBucket.Format(time.RFC3339)
+	for _, filter := range filters {
+		model[filter.Id()] = self.bucketMatches[filter]
+	}
+	if self.unmatched > 0 {
+		model["unmatched"] = fmt.Sprintf("    unmatched: %0000v\n", self.unmatched)
+	}
+
+	j, err := json.Marshal(model)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("%s\n", string(j))
+
 }

@@ -219,6 +219,7 @@ type JsonLogsParser struct {
 	afterTime      string
 	include        LogMatcher
 	handler        EntryHandler
+	formatter 	   string
 }
 
 func (self *JsonLogsParser) addCommonArgs(cmd *cobra.Command) {
@@ -237,6 +238,7 @@ func (self *JsonLogsParser) addSummarizeArgs(cmd *cobra.Command) {
 	cmd.Flags().DurationVarP(&self.bucketSize, "interval", "n", time.Hour, "Interval for which to aggregate log messages")
 	cmd.Flags().IntVarP(&self.maxUnmatched, "max-unmatched", "u", 1, "Maximum unmatched log messages to output per bucket")
 	cmd.Flags().StringSliceVarP(&self.ignore, "ignore", "i", nil, "Filters to ignore")
+	cmd.Flags().StringVarP(&self.formatter, "output", "o", "text", "Specify output format: [text|json]")
 }
 
 func (self *JsonLogsParser) validate() error {

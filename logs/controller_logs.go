@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+
 func NewCtrlLogsCommand() *cobra.Command {
 	controllerLogs := &ControllerLogs{}
 	controllerLogs.Init()
@@ -512,6 +513,7 @@ func (self *ControllerLogs) summarize(cmd *cobra.Command, args []string) error {
 		bucketMatches:               map[LogFilter]int{},
 		maxUnmatchedLoggedPerBucket: self.maxUnmatched,
 		ignore:                      self.ignore,
+		formatter: 					  self.formatter,
 	}
 
 	return ScanJsonLines(args[0], self.processLogEntry)
