@@ -1,5 +1,5 @@
 /*
-	Copyright NetFoundry, Inc.
+	Copyright NetFoundry Inc.
 
 	Licensed under the Apache License, Version 2.0 (the "License");
 	you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ import (
 	"github.com/openziti/ziti-ops/buildinfo"
 	debug_db "github.com/openziti/ziti-ops/debug-db"
 	"github.com/openziti/ziti-ops/logs"
-	"github.com/openziti/ziti-ops/split_stackdumps"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -47,7 +46,6 @@ func init() {
 
 	root.AddCommand(logs.NewRouterLogsCmd(), logs.NewCtrlLogsCommand())
 	root.AddCommand(debug_db.NewDebugDbCmd())
-	root.AddCommand(split_stackdumps.NewSplitStackdumpsCmd())
 }
 
 var root = &cobra.Command{

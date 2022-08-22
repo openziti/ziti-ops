@@ -1,5 +1,5 @@
 /*
-	Copyright NetFoundry, Inc.
+	Copyright NetFoundry Inc.
 
 	Licensed under the Apache License, Version 2.0 (the "License");
 	you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import (
 	"github.com/openziti/edge/eid"
 	"github.com/openziti/fabric/controller/db"
 	"github.com/openziti/fabric/controller/network"
-	"github.com/openziti/foundation/storage/boltz"
+	"github.com/openziti/storage/boltz"
 	"github.com/spf13/cobra"
 	"go.etcd.io/bbolt"
 )
@@ -45,27 +45,21 @@ func noError(err error) {
 }
 
 type dbProvider struct {
-	db          boltz.Db
-	stores      *db.Stores
-	controllers *network.Controllers
+	db       boltz.Db
+	stores   *db.Stores
+	managers *network.Managers
 }
 
 func (provider *dbProvider) GetDb() boltz.Db {
 	return provider.db
 }
 
-func (provider *dbProvider) GetServiceCache() network.Cache {
-	panic("implement me")
-}
-
-func (provider *dbProvider) NotifyRouterRenamed(_, _ string) {}
-
 func (provider *dbProvider) GetStores() *db.Stores {
 	return provider.stores
 }
 
-func (provider *dbProvider) GetControllers() *network.Controllers {
-	return provider.controllers
+func (provider *dbProvider) GetManagers() *network.Managers {
+	return provider.managers
 }
 
 func run(dbFile string) {
@@ -75,12 +69,12 @@ func run(dbFile string) {
 	fabricStores, err := db.InitStores(boltDb)
 	noError(err)
 
-	controllers := network.NewControllers(boltDb, fabricStores)
+	controllers := network.NewManagers(nil, nil, boltDb, fabricStores)
 
 	dbProvider := &dbProvider{
-		db:          boltDb,
-		stores:      fabricStores,
-		controllers: controllers,
+		db:       boltDb,
+		stores:   fabricStores,
+		managers: controllers,
 	}
 
 	stores, err := persistence.NewBoltStores(dbProvider)
@@ -102,7 +96,7 @@ func run(dbFile string) {
 				return err
 			}
 
-			authHandler := model.AuthenticatorHandler{}
+			authHandler := model.AuthenticatorManager{}
 			result := authHandler.HashPassword("admin")
 			authenticator := &persistence.AuthenticatorUpdb{
 				Authenticator: persistence.Authenticator{
