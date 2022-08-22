@@ -1,5 +1,5 @@
 /*
-	Copyright NetFoundry, Inc.
+	Copyright NetFoundry Inc.
 
 	Licensed under the Apache License, Version 2.0 (the "License");
 	you may not use this file except in compliance with the License.
@@ -368,7 +368,7 @@ func getRouterLogFilters() []LogFilter {
 			desc: "another router has dialed this router and a link has been established",
 			LogMatcher: AndMatchers(
 				FieldStartsWith("msg", "accepted new link"),
-				FieldContains("file", "router/accepter.go"),
+				FieldContains("file", "router/bind.go"),
 			)},
 		&filter{
 			id:   "LINK_CTRL_START",
@@ -388,7 +388,7 @@ func getRouterLogFilters() []LogFilter {
 			id:   "LINK_VERIFY_SUCCESS",
 			desc: "link was successfully verified with the controller",
 			LogMatcher: AndMatchers(
-				FieldContains("file", "handler_link/accepter.go"),
+				FieldContains("file", "handler_link/bind.go"),
 				OrMatchers(
 					FieldStartsWith("msg", "successfully verify link"),
 					FieldStartsWith("msg", "successfully verified link"),

@@ -1,5 +1,5 @@
 /*
-	Copyright NetFoundry, Inc.
+	Copyright NetFoundry Inc.
 
 	Licensed under the Apache License, Version 2.0 (the "License");
 	you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/Jeffail/gabs/v2"
-	"github.com/openziti/foundation/util/stringz"
+	"github.com/openziti/foundation/v2/stringz"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"os"
@@ -41,7 +41,7 @@ type ParseContext struct {
 }
 
 func (self *ParseContext) parseJournald() {
-	if self.journald {
+	if self.journald && len(self.line) > 0 {
 		if self.line[0] == '-' {
 			self.process = "journald"
 		} else {
