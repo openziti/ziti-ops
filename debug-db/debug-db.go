@@ -20,11 +20,11 @@ import (
 	"github.com/openziti/edge/controller/model"
 	"github.com/openziti/edge/controller/persistence"
 	"github.com/openziti/edge/eid"
+	"github.com/openziti/fabric/controller/change"
 	"github.com/openziti/fabric/controller/db"
 	"github.com/openziti/fabric/controller/network"
 	"github.com/openziti/storage/boltz"
 	"github.com/spf13/cobra"
-	"go.etcd.io/bbolt"
 )
 
 func NewDebugDbCmd() *cobra.Command {
@@ -81,7 +81,9 @@ func run(dbFile string) {
 	noError(err)
 
 	id := "7dbd3fc9-e4c8-489a-ab8f-4bbb3d768f57"
-	err = dbProvider.GetDb().Update(func(tx *bbolt.Tx) error {
+	ctx := change.New().SetChangeAuthorType("cli.debug-db").NewMutateContext()
+	err = dbProvider.GetDb().Update(ctx, func(ctx boltz.MutateContext) error {
+		tx := ctx.Tx()
 		identity, _ := stores.Identity.LoadOneById(tx, id)
 		if identity == nil {
 			identity = &persistence.Identity{
@@ -91,7 +93,6 @@ func run(dbFile string) {
 				IsDefaultAdmin: false,
 				IsAdmin:        true,
 			}
-			ctx := boltz.NewMutateContext(tx)
 			if err = stores.Identity.Create(ctx, identity); err != nil {
 				return err
 			}
@@ -112,7 +113,7 @@ func run(dbFile string) {
 			}
 			authenticator.SubType = authenticator
 
-			if err = stores.Authenticator.Create(ctx, authenticator); err != nil {
+			if err = stores.Authenticator.Create(ctx, &authenticator.Authenticator); err != nil {
 				return err
 			}
 		}
