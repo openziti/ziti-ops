@@ -20,59 +20,58 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func NewEndpointLogsCommand() *cobra.Command {
+	endpointLogs := &EndpointLogs{}
+	endpointLogs.Init()
 
-func NewCtrlLogsCommand() *cobra.Command {
-	controllerLogs := &ControllerLogs{}
-	controllerLogs.Init()
-
-	controllerLogsCmd := &cobra.Command{
-		Use:     "controller-logs",
-		Short:   "work with controller logs",
+	endpointLogsCmd := &cobra.Command{
+		Use:     "endpoint-logs",
+		Short:   "work with endpoint logs",
 		Args:    cobra.ExactArgs(1),
 		Aliases: []string{"cl"},
 	}
 
-	filterControllerLogsCmd := &cobra.Command{
+	filterEndpointLogsCmd := &cobra.Command{
 		Use:     "filter",
-		Short:   "filter controller log entries",
+		Short:   "filter endpoint log entries",
 		Aliases: []string{"f"},
-		RunE:    controllerLogs.filter,
+		RunE:    endpointLogs.filter,
 	}
 
-	controllerLogs.addFilterArgs(filterControllerLogsCmd)
+	endpointLogs.addFilterArgs(filterEndpointLogsCmd)
 
-	summarizeControllerLogsCmd := &cobra.Command{
+	summarizeEndpointLogsCmd := &cobra.Command{
 		Use:     "summarize",
-		Short:   "Show controller log entry summaries",
+		Short:   "Show endpoint log entry summaries",
 		Aliases: []string{"s"},
-		RunE:    controllerLogs.summarize,
+		RunE:    endpointLogs.summarize,
 	}
 
-	controllerLogs.addSummarizeArgs(summarizeControllerLogsCmd)
+	endpointLogs.addSummarizeArgs(summarizeEndpointLogsCmd)
 
-	controllerLogs.addFilterArgs(controllerLogsCmd)
+	endpointLogs.addFilterArgs(endpointLogsCmd)
 
-	showControllerLogCategoriesCmd := &cobra.Command{
+	showEndpointLogCategoriesCmd := &cobra.Command{
 		Use:     "categories",
-		Short:   "Show controller log entry categories",
+		Short:   "Show endpoint log entry categories",
 		Aliases: []string{"cat"},
-		Run:     controllerLogs.ShowCategories,
+		Run:     endpointLogs.ShowCategories,
 	}
 
-	controllerLogsCmd.AddCommand(filterControllerLogsCmd, summarizeControllerLogsCmd, showControllerLogCategoriesCmd)
+	endpointLogsCmd.AddCommand(filterEndpointLogsCmd, summarizeEndpointLogsCmd, showEndpointLogCategoriesCmd)
 
-	return controllerLogsCmd
+	return endpointLogsCmd
 }
 
-type ControllerLogs struct {
+type EndpointLogs struct {
 	JsonLogsParser
 }
 
-func (self *ControllerLogs) Init() {
-	self.filters = getControllerLogFilters()
+func (self *EndpointLogs) Init() {
+	self.filters = getEndpointLogFilters()
 }
 
-func getControllerLogFilters() []LogFilter {
+func getEndpointLogFilters() []LogFilter {
 	var result []LogFilter
 
 	// tls
@@ -503,7 +502,7 @@ func getControllerLogFilters() []LogFilter {
 	return result
 }
 
-func (self *ControllerLogs) summarize(cmd *cobra.Command, args []string) error {
+func (self *EndpointLogs) summarize(cmd *cobra.Command, args []string) error {
 	if err := self.validate(); err != nil {
 		return err
 	}
@@ -513,13 +512,13 @@ func (self *ControllerLogs) summarize(cmd *cobra.Command, args []string) error {
 		bucketMatches:               map[LogFilter]int{},
 		maxUnmatchedLoggedPerBucket: self.maxUnmatched,
 		ignore:                      self.ignore,
-		formatter: 					  self.formatter,
+		formatter:                   self.formatter,
 	}
 
 	return ScanJsonLines(args[0], self.processLogEntry)
 }
 
-func (self *ControllerLogs) filter(cmd *cobra.Command, args []string) error {
+func (self *EndpointLogs) filter(cmd *cobra.Command, args []string) error {
 	if err := self.validate(); err != nil {
 		return err
 	}
