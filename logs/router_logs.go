@@ -272,6 +272,20 @@ func getRouterLogFilters() []LogFilter {
 	// link messages
 	result = append(result,
 		&filter{
+			id:   "LINK_HEARBEAT_TIMEOUT",
+			desc: "a latency probe has failed to be received in time",
+			LogMatcher: AndMatchers(
+				FieldStartsWith("msg", "heartbeat not received in time, link may be unhealthy"),
+				FieldContains("file", "handler_link/bind.go"),
+			)},
+		&filter{
+			id:   "LINK_QUEUE_FULL",
+			desc: "a latency probe has failed to be sent due to a full queue",
+			LogMatcher: AndMatchers(
+				FieldStartsWith("msg", "unable to check queue time, too many check already running"),
+				FieldContains("file", "handler_link/bind.go"),
+			)},
+		&filter{
 			id:   "LINK_HEARBEAT_FAIL",
 			desc: "a hearbeat has failed to be sent",
 			LogMatcher: AndMatchers(
