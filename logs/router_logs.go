@@ -298,6 +298,7 @@ func getRouterLogFilters() []LogFilter {
 				OrMatchers(
 					FieldContains("file", "xgress_edge_tunnel/fabric.go"),
 					FieldContains("file", "xgress/request.go"),
+				),
 			)},
 	)
 
