@@ -267,6 +267,13 @@ func getRouterLogFilters() []LogFilter {
 				FieldContains("file", "handler_ctrl/route.go"),
 				FieldContains("error", "connect: connection refused"),
 			)},
+		&filter{
+			id:   "TERMINATOR_REMOVAL_FAILED",
+			desc: "a terminator failed to be removed after the edge session was removed",
+			LogMatcher: AndMatchers(
+				FieldStartsWith("msg", "failed to remove terminator after edge session was removed"),
+				FieldContains("file", "xgress_edge_tunnel/fabric.go"),
+			)},
 	)
 
 	// link messages
@@ -560,6 +567,17 @@ func getRouterLogFilters() []LogFilter {
 			LogMatcher: AndMatchers(
 				FieldEquals("msg", "tunnel failed"),
 				FieldContains("file", "tunnel/tunnel.go"),
+			)},
+	)
+
+	// circuit routing messages
+	result = append(result,
+		&filter{
+			id:   "ROUTE_TIMEOUT",
+			desc: "a circuit path has failed to be completed due to a timeout",
+			LogMatcher: AndMatchers(
+				FieldStartsWith("msg", "send response failed"),
+				FieldContains("file", "handler_ctrl/route.go"),
 			)},
 	)
 
