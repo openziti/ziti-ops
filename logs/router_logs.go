@@ -258,6 +258,13 @@ func getRouterLogFilters() []LogFilter {
 	// dial egress messages
 	result = append(result,
 		&filter{
+			id:   "DIAL_FAILURE_NO_TERMINATOR",
+			desc: "a circuit path has failed to be completed due to a timeout",
+			LogMatcher: AndMatchers(
+				FieldStartsWith("msg", "failure while handling route update"),
+				FieldContains("file", "handler_ctrl/route.go"),
+			)},
+		&filter{
 			id:   "EGRESS_DIAL_ERR_BIND_FAIL",
 			desc: "the dial failed because the requested address could not be assigned",
 			LogMatcher: AndMatchers(
@@ -278,7 +285,9 @@ func getRouterLogFilters() []LogFilter {
 			desc: "a terminator failed to be removed after the edge session was removed",
 			LogMatcher: AndMatchers(
 				FieldStartsWith("msg", "failed to remove terminator after edge session was removed"),
-				FieldContains("file", "router/xgress/request.go"),
+				OrMatchers(
+					FieldContains("file", "router/xgress/request.go"),
+					FieldContains("file", "xgress_edge_tunnel/fabric.go")
 			)},
 		&filter{
 			id:   "CIRCUIT_ERROR",
