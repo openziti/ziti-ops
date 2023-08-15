@@ -28,7 +28,7 @@ func NewEndpointLogsCommand() *cobra.Command {
 		Use:     "endpoint-logs",
 		Short:   "work with endpoint logs",
 		Args:    cobra.ExactArgs(1),
-		Aliases: []string{"cl"},
+		Aliases: []string{"el"},
 	}
 
 	filterEndpointLogsCmd := &cobra.Command{
