@@ -288,6 +288,7 @@ func getRouterLogFilters() []LogFilter {
 				OrMatchers(
 					FieldContains("file", "router/xgress/request.go"),
 					FieldContains("file", "xgress_edge_tunnel/fabric.go"),
+				),
 			)},
 		&filter{
 			id:   "CIRCUIT_ERROR",
