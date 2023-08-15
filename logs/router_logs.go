@@ -272,6 +272,13 @@ func getRouterLogFilters() []LogFilter {
 	// link messages
 	result = append(result,
 		&filter{
+			id:   "LINK_HEARBEAT_FAIL",
+			desc: "a hearbeat has failed to be sent",
+			LogMatcher: AndMatchers(
+				FieldStartsWith("msg", "failed to send heartbeat"),
+				FieldContains("file", "/heartbeater.go"),
+			)},
+		&filter{
 			id:   "LINK_DIAL_FAIL",
 			desc: "a link dial action has failed",
 			LogMatcher: AndMatchers(
