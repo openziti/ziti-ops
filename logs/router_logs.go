@@ -188,7 +188,13 @@ func getRouterLogFilters() []LogFilter {
 			LogMatcher: AndMatchers(
 				FieldStartsWith("msg", "error receiving hello from "),
 				FieldContains("msg", "tls: client didn't provide a certificate"),
-				FieldContains("file", "channel2/classic_listener.go"),
+				OrMatchers(
+					FieldContains("file", "channel2/classic_listener.go"),
+					AndMatchers(
+						FieldContains("File", "/channel/v2"),
+						FieldContains("File", "classic_listener.go"),
+					),
+				),
 			)},
 		&filter{
 			id:   "CHANNEL_TLS_ERR_UNKNOWN_CA",
