@@ -287,7 +287,7 @@ func getRouterLogFilters() []LogFilter {
 				FieldStartsWith("msg", "failed to remove terminator after edge session was removed"),
 				OrMatchers(
 					FieldContains("file", "router/xgress/request.go"),
-					FieldContains("file", "xgress_edge_tunnel/fabric.go")
+					FieldContains("file", "xgress_edge_tunnel/fabric.go"),
 			)},
 		&filter{
 			id:   "CIRCUIT_ERROR",
