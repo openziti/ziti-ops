@@ -278,6 +278,13 @@ func getRouterLogFilters() []LogFilter {
 			desc: "a terminator failed to be removed after the edge session was removed",
 			LogMatcher: AndMatchers(
 				FieldStartsWith("msg", "failed to remove terminator after edge session was removed"),
+				FieldContains("file", "router/xgress/request.go"),
+			)},
+		&filter{
+			id:   "CIRCUIT_ERROR",
+			desc: "a circuit failed to be created",
+			LogMatcher: AndMatchers(
+				FieldStartsWith("msg", "failure creating circuit"),
 				FieldContains("file", "xgress_edge_tunnel/fabric.go"),
 			)},
 	)
@@ -525,12 +532,20 @@ func getRouterLogFilters() []LogFilter {
 				FieldContains("file", "xgress_edge_tunnel/dialer.go"),
 			)},
 		&filter{
+			id:   "TUNNEL_TCP_ACCEPT",
+			desc: "tunneler has accepted a TCP connection",
+			LogMatcher: AndMatchers(
+				FieldContains("file", "tcp/listener.go"),
+				FieldStartsWith("msg", "accepted connection"),
+			)},
+		&filter{
 			id:   "TUNNEL_TPROXY_TCP_ACCEPT",
 			desc: "tproxy based tunneler has accepted a TCP connection",
 			LogMatcher: AndMatchers(
 				FieldContains("file", "tproxy/tproxy_linux.go"),
 				FieldStartsWith("msg", "received connection"),
 			)},
+
 		&filter{
 			id:   "TUNNEL_DIAL_ERR",
 			desc: "a router embedded tunneler failed to create a circuit",
