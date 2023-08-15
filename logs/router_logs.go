@@ -295,7 +295,9 @@ func getRouterLogFilters() []LogFilter {
 			desc: "a circuit failed to be created",
 			LogMatcher: AndMatchers(
 				FieldStartsWith("msg", "failure creating circuit"),
-				FieldContains("file", "xgress_edge_tunnel/fabric.go"),
+				OrMatchers(
+					FieldContains("file", "xgress_edge_tunnel/fabric.go"),
+					FieldContains("file", "xgress/request.go"),
 			)},
 	)
 
