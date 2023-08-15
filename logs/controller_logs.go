@@ -20,14 +20,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-
 func NewCtrlLogsCommand() *cobra.Command {
 	controllerLogs := &ControllerLogs{}
 	controllerLogs.Init()
 
 	controllerLogsCmd := &cobra.Command{
 		Use:     "controller-logs",
-		Short:   "work with controller logs",
+		Short:   "work with Ziti controller logs",
 		Args:    cobra.ExactArgs(1),
 		Aliases: []string{"cl"},
 	}
@@ -513,7 +512,7 @@ func (self *ControllerLogs) summarize(cmd *cobra.Command, args []string) error {
 		bucketMatches:               map[LogFilter]int{},
 		maxUnmatchedLoggedPerBucket: self.maxUnmatched,
 		ignore:                      self.ignore,
-		formatter: 					  self.formatter,
+		formatter:                   self.formatter,
 	}
 
 	return ScanJsonLines(args[0], self.processLogEntry)

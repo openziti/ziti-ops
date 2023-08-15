@@ -45,7 +45,7 @@ func init() {
 	})
 
 	root.AddCommand(logs.NewRouterLogsCmd(), logs.NewCtrlLogsCommand(), logs.NewEndpointLogsCommand())
-	// root.AddCommand(debug_db.NewDebugDbCmd())
+	root.AddCommand(debug_db.NewDebugDbCmd())
 }
 
 var root = &cobra.Command{
