@@ -272,6 +272,13 @@ func getRouterLogFilters() []LogFilter {
 	// link messages
 	result = append(result,
 		&filter{
+			id:   "LINK_DIAL_FAIL",
+			desc: "a link dial action has failed",
+			LogMatcher: AndMatchers(
+				FieldStartsWith("msg", "link dialing failed"),
+				FieldContains("file", "handler_ctrl/dial.go"),
+			)},
+		&filter{
 			id:   "LINK_DIAL_SPLIT",
 			desc: "a link is being dialed to another router with separate connections for data and acknowledgements",
 			LogMatcher: AndMatchers(
@@ -398,6 +405,13 @@ func getRouterLogFilters() []LogFilter {
 
 	// control channel
 	result = append(result,
+		&filter{
+			id:   "CTRL_CH_METRICS_SEND_FAILED",
+			desc: "the router failed to send a metrics message to the controller",
+			LogMatcher: AndMatchers(
+				FieldContains("msg", "failed to send metrics message"),
+				FieldContains("file", "metrics/ctrl_reporter.go"),
+			)},
 		&filter{
 			id:   "CTRL_CH_RECONNECT_START",
 			desc: "the router to controller control channel connection died and the router trying to reconnect",
