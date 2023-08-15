@@ -539,6 +539,13 @@ func getRouterLogFilters() []LogFilter {
 				FieldStartsWith("msg", "accepted connection"),
 			)},
 		&filter{
+			id:   "FABRIC_TCP_ACCEPT",
+			desc: "router has accepted a TCP connection in a fabric service",
+			LogMatcher: AndMatchers(
+				FieldContains("file", "transport/v2/tcp.acceptLoop"),
+				FieldStartsWith("msg", "accepted connection"),
+			)},
+		&filter{
 			id:   "TUNNEL_TPROXY_TCP_ACCEPT",
 			desc: "tproxy based tunneler has accepted a TCP connection",
 			LogMatcher: AndMatchers(
