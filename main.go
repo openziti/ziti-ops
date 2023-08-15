@@ -21,6 +21,7 @@ import (
 
 	"github.com/michaelquigley/pfxlog"
 	"github.com/openziti/ziti-ops/buildinfo"
+	"github.com/openziti/ziti-ops/debug_db"
 	"github.com/openziti/ziti-ops/logs"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
