@@ -620,6 +620,13 @@ func getRouterLogFilters() []LogFilter {
 				FieldStartsWith("msg", "send response failed"),
 				FieldContains("file", "handler_ctrl/route.go"),
 			)},
+		&filter{
+			id:   "ROUTE_HANDLER_QUEUE_ERROR",
+			desc: "a route update has failed to be queued",
+			LogMatcher: AndMatchers(
+				FieldStartsWith("msg", "error queuing route processing to pool"),
+				FieldContains("file", "handler_ctrl/route.go"),
+			)},
 	)
 
 	return result
