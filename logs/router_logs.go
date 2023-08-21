@@ -188,7 +188,13 @@ func getRouterLogFilters() []LogFilter {
 			LogMatcher: AndMatchers(
 				FieldStartsWith("msg", "error receiving hello from "),
 				FieldContains("msg", "tls: client didn't provide a certificate"),
-				FieldContains("file", "channel2/classic_listener.go"),
+				OrMatchers(
+					FieldContains("file", "channel2/classic_listener.go"),
+					AndMatchers(
+						FieldContains("File", "/channel/v2"),
+						FieldContains("File", "classic_listener.go"),
+					),
+				),
 			)},
 		&filter{
 			id:   "CHANNEL_TLS_ERR_UNKNOWN_CA",
@@ -252,6 +258,13 @@ func getRouterLogFilters() []LogFilter {
 	// dial egress messages
 	result = append(result,
 		&filter{
+			id:   "DIAL_FAILURE_NO_TERMINATOR",
+			desc: "a circuit path has failed to be completed due to a timeout",
+			LogMatcher: AndMatchers(
+				FieldStartsWith("msg", "failure while handling route update"),
+				FieldContains("file", "handler_ctrl/route.go"),
+			)},
+		&filter{
 			id:   "EGRESS_DIAL_ERR_BIND_FAIL",
 			desc: "the dial failed because the requested address could not be assigned",
 			LogMatcher: AndMatchers(
@@ -267,10 +280,58 @@ func getRouterLogFilters() []LogFilter {
 				FieldContains("file", "handler_ctrl/route.go"),
 				FieldContains("error", "connect: connection refused"),
 			)},
+		&filter{
+			id:   "TERMINATOR_REMOVAL_FAILED",
+			desc: "a terminator failed to be removed after the edge session was removed",
+			LogMatcher: AndMatchers(
+				FieldStartsWith("msg", "failed to remove terminator after edge session was removed"),
+				OrMatchers(
+					FieldContains("file", "router/xgress/request.go"),
+					FieldContains("file", "xgress_edge_tunnel/fabric.go"),
+				),
+			)},
+		&filter{
+			id:   "CIRCUIT_ERROR",
+			desc: "a circuit failed to be created",
+			LogMatcher: AndMatchers(
+				FieldStartsWith("msg", "failure creating circuit"),
+				OrMatchers(
+					FieldContains("file", "xgress_edge_tunnel/fabric.go"),
+					FieldContains("file", "xgress/request.go"),
+				),
+			)},
 	)
 
 	// link messages
 	result = append(result,
+		&filter{
+			id:   "LINK_HEARBEAT_TIMEOUT",
+			desc: "a latency probe has failed to be received in time",
+			LogMatcher: AndMatchers(
+				FieldStartsWith("msg", "heartbeat not received in time, link may be unhealthy"),
+				FieldContains("file", "handler_link/bind.go"),
+			)},
+		&filter{
+			id:   "LINK_QUEUE_FULL",
+			desc: "a latency probe has failed to be sent due to a full queue",
+			LogMatcher: AndMatchers(
+				FieldStartsWith("msg", "unable to check queue time, too many check already running"),
+				FieldContains("file", "handler_link/bind.go"),
+			)},
+		&filter{
+			id:   "LINK_HEARBEAT_FAIL",
+			desc: "a hearbeat has failed to be sent",
+			LogMatcher: AndMatchers(
+				FieldStartsWith("msg", "failed to send heartbeat"),
+				FieldContains("file", "/heartbeater.go"),
+			)},
+		&filter{
+			id:   "LINK_DIAL_FAIL",
+			desc: "a link dial action has failed",
+			LogMatcher: AndMatchers(
+				FieldStartsWith("msg", "link dialing failed"),
+				FieldContains("file", "handler_ctrl/dial.go"),
+			)},
 		&filter{
 			id:   "LINK_DIAL_SPLIT",
 			desc: "a link is being dialed to another router with separate connections for data and acknowledgements",
@@ -399,6 +460,13 @@ func getRouterLogFilters() []LogFilter {
 	// control channel
 	result = append(result,
 		&filter{
+			id:   "CTRL_CH_METRICS_SEND_FAILED",
+			desc: "the router failed to send a metrics message to the controller",
+			LogMatcher: AndMatchers(
+				FieldContains("msg", "failed to send metrics message"),
+				FieldContains("file", "metrics/ctrl_reporter.go"),
+			)},
+		&filter{
 			id:   "CTRL_CH_RECONNECT_START",
 			desc: "the router to controller control channel connection died and the router trying to reconnect",
 			LogMatcher: AndMatchers(
@@ -477,12 +545,27 @@ func getRouterLogFilters() []LogFilter {
 				FieldContains("file", "xgress_edge_tunnel/dialer.go"),
 			)},
 		&filter{
+			id:   "TUNNEL_TCP_ACCEPT",
+			desc: "tunneler has accepted a TCP connection",
+			LogMatcher: AndMatchers(
+				FieldContains("file", "tcp/listener.go"),
+				FieldStartsWith("msg", "accepted connection"),
+			)},
+		&filter{
+			id:   "FABRIC_TCP_ACCEPT",
+			desc: "router has accepted a TCP connection in a fabric service",
+			LogMatcher: AndMatchers(
+				FieldContains("file", "transport/v2/tcp.acceptLoop"),
+				FieldStartsWith("msg", "accepted connection"),
+			)},
+		&filter{
 			id:   "TUNNEL_TPROXY_TCP_ACCEPT",
 			desc: "tproxy based tunneler has accepted a TCP connection",
 			LogMatcher: AndMatchers(
 				FieldContains("file", "tproxy/tproxy_linux.go"),
 				FieldStartsWith("msg", "received connection"),
 			)},
+
 		&filter{
 			id:   "TUNNEL_DIAL_ERR",
 			desc: "a router embedded tunneler failed to create a circuit",
@@ -525,6 +608,24 @@ func getRouterLogFilters() []LogFilter {
 			LogMatcher: AndMatchers(
 				FieldEquals("msg", "tunnel failed"),
 				FieldContains("file", "tunnel/tunnel.go"),
+			)},
+	)
+
+	// circuit routing messages
+	result = append(result,
+		&filter{
+			id:   "ROUTE_TIMEOUT",
+			desc: "a circuit path has failed to be completed due to a timeout",
+			LogMatcher: AndMatchers(
+				FieldStartsWith("msg", "send response failed"),
+				FieldContains("file", "handler_ctrl/route.go"),
+			)},
+		&filter{
+			id:   "ROUTE_HANDLER_QUEUE_ERROR",
+			desc: "a route update has failed to be queued",
+			LogMatcher: AndMatchers(
+				FieldStartsWith("msg", "error queuing route processing to pool"),
+				FieldContains("file", "handler_ctrl/route.go"),
 			)},
 	)
 

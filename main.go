@@ -18,9 +18,10 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/michaelquigley/pfxlog"
 	"github.com/openziti/ziti-ops/buildinfo"
-	debug_db "github.com/openziti/ziti-ops/debug-db"
+	"github.com/openziti/ziti-ops/debug_db"
 	"github.com/openziti/ziti-ops/logs"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -44,7 +45,7 @@ func init() {
 		},
 	})
 
-	root.AddCommand(logs.NewRouterLogsCmd(), logs.NewCtrlLogsCommand())
+	root.AddCommand(logs.NewRouterLogsCmd(), logs.NewCtrlLogsCommand(), logs.NewEndpointLogsCommand())
 	root.AddCommand(debug_db.NewDebugDbCmd())
 }
 
