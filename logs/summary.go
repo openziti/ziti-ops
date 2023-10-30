@@ -32,7 +32,7 @@ type LogSummaryHandler struct {
 	unmatched                   int
 	maxUnmatchedLoggedPerBucket int
 	ignore                      []string
-	formatter 					string
+	formatter                   string
 }
 
 func (self *LogSummaryHandler) HandleNewLine(ctx *JsonParseContext) error {
