@@ -219,7 +219,7 @@ type JsonLogsParser struct {
 	afterTime      string
 	include        LogMatcher
 	handler        EntryHandler
-	formatter 	   string
+	formatter      string
 }
 
 func (self *JsonLogsParser) addCommonArgs(cmd *cobra.Command) {

@@ -642,6 +642,7 @@ func (self *RouterLogs) summarize(_ *cobra.Command, args []string) error {
 		bucketMatches:               map[LogFilter]int{},
 		maxUnmatchedLoggedPerBucket: self.maxUnmatched,
 		ignore:                      self.ignore,
+		formatter:                   self.formatter,
 	}
 
 	return ScanJsonLines(args[0], self.processLogEntry)
