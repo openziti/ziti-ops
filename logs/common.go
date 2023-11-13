@@ -30,6 +30,10 @@ import (
 	"unicode"
 )
 
+const DateTimeSecondsFormat = "2006-01-02T15:04:05"
+const DateTimeMinutesFormat = "2006-01-02T15:04"
+const DateTimeHoursFormat = "2006-01-02T15"
+
 type ParseContext struct {
 	path              string
 	journaldTimestamp string
@@ -44,8 +48,9 @@ func (self *ParseContext) parseJournald() {
 	if self.journald && len(self.line) > 0 {
 		if self.line[0] == '-' {
 			self.process = "journald"
+			self.journaldTimestamp = ""
 		} else {
-			self.journaldTimestamp = self.line[16:]
+			self.journaldTimestamp = strings.TrimSpace(self.line[:16])
 			self.line = self.line[16:] // strip timestamp
 			_, self.line = splitFirst(self.line, ' ')
 			self.process, self.line = splitFirst(self.line, ':')
@@ -83,7 +88,7 @@ func ScanLines(ctx *ParseContext, callback func(ctx *ParseContext) error) error 
 	if ctx.journald {
 		if scanner.Scan() {
 			line := scanner.Text()
-			if !strings.HasPrefix(line, "-- Logs being at") {
+			if !strings.HasPrefix(line, "-- Logs begin at") {
 				if err := callback(ctx); err != nil {
 					return errors.Wrapf(err, "error parsing %v on line %v", ctx.path, ctx.lineNumber)
 				}
@@ -252,22 +257,51 @@ func (self *JsonLogsParser) validate() error {
 	return self.setupDateFilters()
 }
 
+func (self *JsonLogsParser) parseDateTimeFilter(filter string) (time.Time, error) {
+	t, err := time.Parse(time.RFC3339, filter)
+	if err == nil {
+		return t, nil
+	}
+
+	t, err = time.Parse(DateTimeSecondsFormat, filter)
+	if err == nil {
+		return t, nil
+	}
+
+	t, err = time.Parse(DateTimeMinutesFormat, filter)
+	if err == nil {
+		return t, nil
+	}
+
+	t, err = time.Parse(DateTimeHoursFormat, filter)
+	if err == nil {
+		return t, nil
+	}
+
+	t, err = time.Parse(time.DateOnly, filter)
+	if err == nil {
+		return t, nil
+	}
+
+	return time.Time{}, errors.New("unable to parse date/time string")
+}
+
 func (self *JsonLogsParser) setupDateFilters() error {
 	var beforeTime *time.Time
 	var afterTime *time.Time
 
 	if self.beforeTime != "" {
-		t, err := time.Parse(time.RFC3339, self.beforeTime)
+		t, err := self.parseDateTimeFilter(self.beforeTime)
 		if err != nil {
-			return errors.Errorf("invalid before time argument '%v'. Should use format: '%v'", self.beforeTime, time.RFC3339)
+			return errors.Errorf("invalid before time argument '%v'. Try format: '%v'", self.beforeTime, DateTimeSecondsFormat)
 		}
 		beforeTime = &t
 	}
 
 	if self.afterTime != "" {
-		t, err := time.Parse(time.RFC3339, self.afterTime)
+		t, err := self.parseDateTimeFilter(self.afterTime)
 		if err != nil {
-			return errors.Errorf("invalid after time argument '%v'. Should use format: '%v'", self.afterTime, time.RFC3339)
+			return errors.Errorf("invalid after time argument '%v'. Try format: '%v'", self.afterTime, DateTimeSecondsFormat)
 		}
 		afterTime = &t
 	}
