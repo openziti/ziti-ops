@@ -40,7 +40,7 @@ func (self *LogFilterHandler) HandleMatch(ctx *JsonParseContext, logFilter LogFi
 	return nil
 }
 
-func (self LogFilterHandler) HandleUnmatched(ctx *JsonParseContext) error {
+func (self *LogFilterHandler) HandleUnmatched(ctx *JsonParseContext) error {
 	self.unmatched++
 	if self.unmatched <= self.maxUnmatched {
 		fmt.Printf("WARN: unmatched line: %v\n\n", ctx.line)

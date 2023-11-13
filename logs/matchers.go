@@ -153,6 +153,11 @@ func (self TimePredicate) Matches(ctx *JsonParseContext) (bool, error) {
 		}
 		return self(t), nil
 	}
+
+	if ctx.journaldTimestamp == "" {
+		return false, nil
+	}
+
 	t, err := ctx.getJournaldTime()
 	if err != nil {
 		return false, err
