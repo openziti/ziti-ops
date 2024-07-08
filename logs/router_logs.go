@@ -514,7 +514,7 @@ func getRouterLogFilters() []LogFilter {
 			LogMatcher: AndMatchers(
 				FieldContains("error", "error connecting ctrl (EOF)"),
 				FieldContains("file", "github.com/openziti/ziti/ziti-router/subcmd/run.go"),
-			)}
+			)},
 	)
 
 	// session sync
