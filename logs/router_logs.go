@@ -508,6 +508,13 @@ func getRouterLogFilters() []LogFilter {
 				FieldContains("msg", "received server hello"),
 				FieldContains("file", "handler_edge_ctrl/hello.go"),
 			)},
+		&filter{
+			id:   "CTRL_CH_CONNECTION_FAILED",
+			desc: "the router is unable to create a connection to the controller",
+			LogMatcher: AndMatchers(
+				FieldContains("error", "error connecting ctrl (EOF)"),
+				FieldContains("file", "github.com/openziti/ziti/ziti-router/subcmd/run.go"),
+			)}
 	)
 
 	// session sync
