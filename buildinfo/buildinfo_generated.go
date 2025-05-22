@@ -20,9 +20,9 @@
 package buildinfo
 
 const (
-	Version   = "v0.0.0"
-	Revision  = "5206c6cf6a7b"
-	Branch    = "main"
-	BuildUser = "Paul Lorenz"
-	BuildDate = "2021-12-10T17:26:24-05:00"
+	Version   = "v0.1.15"
+	Revision  = "545f157b6864"
+	Branch    = "unknown"
+	BuildUser = "unknown"
+	BuildDate = "2025-05-22T17:13:52Z"
 )
